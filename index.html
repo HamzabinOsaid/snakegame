@@ -3,79 +3,130 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Snake Game Pro</title>
+<title>Snake Game Pro+</title>
+
 <style>
   body {
     margin: 0;
+    font-family: Arial, sans-serif;
     background: #0f172a;
     color: white;
-    font-family: Arial, sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    text-align: center;
   }
 
-  h1 {
-    margin: 10px;
+  h1 { margin: 10px; }
+
+  .screen {
+    display: none;
+    padding: 20px;
   }
 
-  #gameContainer {
-    position: relative;
+  .active {
+    display: block;
   }
+
+  button {
+    padding: 10px 14px;
+    margin: 6px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    background: #2563eb;
+    color: white;
+    font-size: 14px;
+  }
+
+  button:hover { background: #1d4ed8; }
 
   canvas {
     background: #111827;
     border: 2px solid #334155;
-    display: block;
   }
 
-  #ui {
-    margin: 10px;
+  #hud {
     display: flex;
+    justify-content: center;
     gap: 20px;
-    font-size: 16px;
+    margin: 10px;
   }
 
-  #shop {
-    margin-top: 10px;
-  }
-
-  button {
-    padding: 6px 10px;
-    margin: 5px;
-    border: none;
-    background: #2563eb;
-    color: white;
-    border-radius: 6px;
-    cursor: pointer;
-  }
-
-  button:hover {
-    background: #1d4ed8;
+  .shop-item {
+    margin: 10px;
+    padding: 10px;
+    border: 1px solid #334155;
+    border-radius: 10px;
   }
 </style>
 </head>
+
 <body>
 
-<h1>Snake Game Pro</h1>
+<h1>🐍 Snake Game Pro+</h1>
 
-<div id="ui">
-  <div>Score: <span id="score">0</span></div>
-  <div>Coins: <span id="coins">0</span></div>
-  <div>Level: <span id="level">1</span></div>
+<!-- HOME -->
+<div id="home" class="screen active">
+  <button onclick="startGame()">▶ Play</button>
+  <button onclick="showShop()">🛒 Shop</button>
+  <button onclick="resetProgress()">♻ Reset Progress</button>
 </div>
 
-<div id="gameContainer">
+<!-- GAME -->
+<div id="gameScreen" class="screen">
+  <div id="hud">
+    <div>Score: <span id="score">0</span></div>
+    <div>Coins: <span id="coins">0</span></div>
+    <div>Level: <span id="level">1</span></div>
+  </div>
+
   <canvas id="game"></canvas>
+  <br>
+  <button onclick="goHome()">⬅ Exit</button>
 </div>
 
-<div id="shop">
-  <button onclick="setSkin('green')">Green Snake</button>
-  <button onclick="setSkin('blue')">Blue Snake (10 coins)</button>
-  <button onclick="setSkin('red')">Red Snake (20 coins)</button>
+<!-- SHOP -->
+<div id="shop" class="screen">
+  <h2>Skin Shop</h2>
+
+  <div class="shop-item">
+    Green Snake (Free)<br>
+    <button onclick="setSkin('green')">Select</button>
+  </div>
+
+  <div class="shop-item">
+    Blue Snake (10 coins)<br>
+    <button onclick="buySkin('blue', 10)">Buy / Select</button>
+  </div>
+
+  <div class="shop-item">
+    Red Snake (20 coins)<br>
+    <button onclick="buySkin('red', 20)">Buy / Select</button>
+  </div>
+
+  <button onclick="goHome()">⬅ Back</button>
 </div>
 
 <script>
+/* ---------------- SCREEN SYSTEM ---------------- */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function startGame() {
+  showScreen('gameScreen');
+  resetGame();
+  resize();
+}
+
+function showShop() {
+  showScreen('shop');
+}
+
+function goHome() {
+  showScreen('home');
+}
+
+/* ---------------- GAME SETUP ---------------- */
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
@@ -88,20 +139,24 @@ function resize() {
   cols = Math.floor(canvas.width / tile);
   rows = Math.floor(canvas.height / tile);
 }
-resize();
 window.addEventListener("resize", resize);
 
-let snake = [{x: 10, y: 10}];
-let dir = {x: 1, y: 0};
-let food = spawnFood();
-
-let score = 0;
-let coins = 0;
-let level = 1;
+let snake, dir, food;
+let score = 0, coins = 0, level = 1;
 let speed = 200;
 let lastTime = 0;
-
 let skin = "green";
+
+/* ---------------- GAME LOGIC ---------------- */
+function resetGame() {
+  snake = [{x: 10, y: 10}];
+  dir = {x: 1, y: 0};
+  food = spawnFood();
+
+  score = 0;
+  level = 1;
+  speed = 200;
+}
 
 function spawnFood() {
   return {
@@ -110,23 +165,10 @@ function spawnFood() {
   };
 }
 
-function draw() {
-  ctx.fillStyle = "#111827";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // food
-  ctx.fillStyle = "yellow";
-  ctx.fillRect(food.x * tile, food.y * tile, tile, tile);
-
-  // snake
-  snake.forEach((s, i) => {
-    ctx.fillStyle =
-      skin === "green" ? "#22c55e" :
-      skin === "blue" ? "#3b82f6" :
-      "#ef4444";
-
-    ctx.fillRect(s.x * tile, s.y * tile, tile, tile);
-  });
+function updateUI() {
+  document.getElementById("score").textContent = score;
+  document.getElementById("coins").textContent = coins;
+  document.getElementById("level").textContent = level;
 }
 
 function update() {
@@ -135,13 +177,13 @@ function update() {
     y: snake[0].y + dir.y
   };
 
-  // FIXED collision (proper boundary check)
+  // FIXED collision
   if (
     head.x < 0 || head.y < 0 ||
     head.x >= cols || head.y >= rows ||
     snake.some(s => s.x === head.x && s.y === head.y)
   ) {
-    resetGame();
+    startGame(); // restart clean
     return;
   }
 
@@ -153,7 +195,7 @@ function update() {
 
     if (score % 5 === 0) {
       level++;
-      speed = Math.max(60, speed - 20);
+      speed = Math.max(60, speed - 15);
     }
 
     food = spawnFood();
@@ -161,30 +203,41 @@ function update() {
     snake.pop();
   }
 
-  document.getElementById("score").textContent = score;
-  document.getElementById("coins").textContent = coins;
-  document.getElementById("level").textContent = level;
+  updateUI();
 }
 
-function resetGame() {
-  snake = [{x: 10, y: 10}];
-  dir = {x: 1, y: 0};
-  score = 0;
-  level = 1;
-  speed = 200;
+function draw() {
+  ctx.fillStyle = "#111827";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // food
+  ctx.fillStyle = "yellow";
+  ctx.fillRect(food.x * tile, food.y * tile, tile, tile);
+
+  // snake
+  snake.forEach(s => {
+    ctx.fillStyle =
+      skin === "green" ? "#22c55e" :
+      skin === "blue" ? "#3b82f6" :
+      "#ef4444";
+
+    ctx.fillRect(s.x * tile, s.y * tile, tile, tile);
+  });
 }
 
 function loop(time = 0) {
-  if (time - lastTime > speed) {
-    update();
-    draw();
-    lastTime = time;
+  if (document.getElementById("gameScreen").classList.contains("active")) {
+    if (time - lastTime > speed) {
+      update();
+      draw();
+      lastTime = time;
+    }
   }
   requestAnimationFrame(loop);
 }
 loop();
 
-// keyboard
+/* ---------------- CONTROLS ---------------- */
 window.addEventListener("keydown", e => {
   if (e.key === "ArrowUp" && dir.y === 0) dir = {x: 0, y: -1};
   if (e.key === "ArrowDown" && dir.y === 0) dir = {x: 0, y: 1};
@@ -192,16 +245,16 @@ window.addEventListener("keydown", e => {
   if (e.key === "ArrowRight" && dir.x === 0) dir = {x: 1, y: 0};
 });
 
-// mobile swipe
-let startX, startY;
+/* mobile swipe */
+let sx, sy;
 window.addEventListener("touchstart", e => {
-  startX = e.touches[0].clientX;
-  startY = e.touches[0].clientY;
+  sx = e.touches[0].clientX;
+  sy = e.touches[0].clientY;
 });
 
 window.addEventListener("touchend", e => {
-  let dx = e.changedTouches[0].clientX - startX;
-  let dy = e.changedTouches[0].clientY - startY;
+  let dx = e.changedTouches[0].clientX - sx;
+  let dy = e.changedTouches[0].clientY - sy;
 
   if (Math.abs(dx) > Math.abs(dy)) {
     if (dx > 0 && dir.x === 0) dir = {x: 1, y: 0};
@@ -212,11 +265,25 @@ window.addEventListener("touchend", e => {
   }
 });
 
-// skins
+/* ---------------- SHOP ---------------- */
 function setSkin(s) {
-  if (s === "blue" && coins < 10) return alert("Need 10 coins");
-  if (s === "red" && coins < 20) return alert("Need 20 coins");
   skin = s;
+}
+
+function buySkin(s, cost) {
+  if (coins < cost) {
+    alert("Not enough coins!");
+    return;
+  }
+  coins -= cost;
+  skin = s;
+  updateUI();
+}
+
+/* ---------------- RESET ---------------- */
+function resetProgress() {
+  coins = 0;
+  alert("Progress reset!");
 }
 </script>
 
