@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Premium Snake</title>
+<style>
+body{margin:0;font-family:Arial,sans-serif;background:#0f1117;color:#fff}
+.center{display:flex;flex-direction:column;align-items:center;justify-content:center}
+.screen{min-height:100vh;padding:20px}
+button{padding:12px 18px;border:0;border-radius:12px;background:#1f6feb;color:#fff;cursor:pointer;margin:6px}
+.grid{display:grid;gap:10px}
+#menu .grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));max-width:700px}
+canvas{background:#000;border:2px solid #333;max-width:100%}
+.hidden{display:none}
+.card{background:#1a1d24;padding:12px;border-radius:12px}
+</style>
+</head>
+<body>
+<div id="menu" class="screen center">
+<h1>🐍 Premium Snake</h1>
+<div id="coins"></div>
+<div id="high"></div>
+<div class="grid">
+<button onclick="startGame()">Play</button>
+<button onclick="show('levels')">Levels</button>
+<button onclick="show('skins')">Skins</button>
+<button onclick="show('stats')">Statistics</button>
+<button onclick="claimDaily()">Daily Reward</button>
+<button onclick="resetProgress()">Reset Progress</button>
+</div>
+</div>
+
+<div id="game" class="screen center hidden">
+<div>Score: <span id="score">0</span> | Coins: <span id="coinHud">0</span></div>
+<canvas id="c" width="600" height="600"></canvas>
+<div>
+<button onclick="pauseGame()">Pause</button>
+<button onclick="backMenu()">Menu</button>
+</div>
+</div>
+
+<div id="levels" class="screen hidden"><h2>Levels</h2><div id="levelList"></div><button onclick="show('menu')">Back</button></div>
+<div id="skins" class="screen hidden"><h2>Skins</h2><div id="skinList"></div><button onclick="show('menu')">Back</button></div>
+<div id="stats" class="screen hidden"><h2>Stats</h2><pre id="statsText"></pre><button onclick="show('menu')">Back</button></div>
+
+<script>
+const save=JSON.parse(localStorage.getItem("snakeSave")||"null")||{
+coins:0,totalCoins:0,high:0,selectedLevel:1,selectedSkin:"Green",
+levels:{1:true},skins:{Green:true},
+stats:{games:0,food:0,longest:1},
+lastDaily:0,day:0
+};
+function persist(){localStorage.setItem("snakeSave",JSON.stringify(save));updateUI();}
+function updateUI(){
+coins.textContent="Coins: "+save.coins;
+high.textContent="High Score: "+save.high;
+coinHud.textContent=save.coins;
+statsText.textContent=JSON.stringify({...save.stats,coins:save.coins,high:save.high},null,2);
+}
+function show(id){
+document.querySelectorAll('.screen').forEach(x=>x.classList.add('hidden'));
+document.getElementById(id).classList.remove('hidden');
+renderShops(); updateUI();
+}
+function resetProgress(){localStorage.removeItem("snakeSave"); location.reload();}
+
+const levels=[
+{id:1,name:"Classic",cost:0,speed:120},
+{id:2,name:"Speed Rush",cost:100,speed:80},
+{id:3,name:"Obstacles",cost:250,speed:120},
+{id:4,name:"Maze",cost:500,speed:120},
+{id:5,name:"Extreme",cost:1000,speed:60}
+];
+const skins=[
+["Green",0,"lime"],["Blue",50,"deepskyblue"],["Gold",150,"gold"],["Neon",300,"magenta"],["Rainbow",500,"rainbow"]
+];
+
+function renderShops(){
+levelList.innerHTML="";
+levels.forEach(l=>{
+let b=document.createElement("button");
+b.textContent=(save.levels[l.id]?"Select ":"Buy ")+l.name+" ("+l.cost+")";
+b.onclick=()=>{
+if(!save.levels[l.id]){
+if(save.coins<l.cost)return alert("Not enough coins");
+save.coins-=l.cost; save.levels[l.id]=true;
+}
+save.selectedLevel=l.id; persist();
+};
+levelList.appendChild(b);
+});
+skinList.innerHTML="";
+skins.forEach(s=>{
+let b=document.createElement("button");
+b.textContent=(save.skins[s[0]]?"Equip ":"Buy ")+s[0]+" ("+s[1]+")";
+b.onclick=()=>{
+if(!save.skins[s[0]]){
+if(save.coins<s[1]) return alert("Not enough coins");
+save.coins-=s[1]; save.skins[s[0]]=true;
+}
+save.selectedSkin=s[0]; persist();
+};
+skinList.appendChild(b);
+});
+}
+function claimDaily(){
+const now=Date.now();
+if(now-save.lastDaily<86400000){alert("Come back later"); return;}
+save.day++;
+const reward=save.day===1?25:save.day===2?50:save.day===3?75:save.day===4?100:150;
+save.coins+=reward; save.totalCoins+=reward; save.lastDaily=now;
+persist(); alert("Reward: "+reward);
+}
+const canvas=document.getElementById("c"),ctx=canvas.getContext("2d");
+let snake,food,dir,score,loop,paused=false,size=20;
+
+function startGame(){
+show('game');
+snake=[{x:10,y:10}];
+food={x:5,y:5}; dir={x:1,y:0}; score=0; paused=false;
+save.stats.games++;
+clearInterval(loop);
+let lvl=levels.find(x=>x.id===save.selectedLevel);
+loop=setInterval(tick,lvl.speed);
+}
+function pauseGame(){paused=!paused;}
+function backMenu(){clearInterval(loop);show('menu');persist();}
+
+function tick(){
+if(paused)return;
+const h={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
+if(h.x<0||h.y<0||h.x>=30||h.y>=30||snake.some(s=>s.x===h.x&&s.y===h.y)){gameOver();return;}
+snake.unshift(h);
+if(h.x===food.x&&h.y===food.y){
+score++;
+scoreEl=score;
+document.getElementById("score").textContent=score;
+save.coins++; save.totalCoins++; save.stats.food++;
+food={x:Math.floor(Math.random()*30),y:Math.floor(Math.random()*30)};
+}else snake.pop();
+save.high=Math.max(save.high,score);
+save.stats.longest=Math.max(save.stats.longest,snake.length);
+draw();
+}
+function draw(){
+ctx.clearRect(0,0,600,600);
+ctx.fillStyle="red";ctx.fillRect(food.x*size,food.y*size,size,size);
+snake.forEach((s,i)=>{
+if(save.selectedSkin==="Rainbow") ctx.fillStyle=`hsl(${(Date.now()/10+i*20)%360},100%,50%)`;
+else{
+const map={Green:"lime",Blue:"deepskyblue",Gold:"gold",Neon:"magenta"};
+ctx.fillStyle=map[save.selectedSkin]||"lime";
+}
+ctx.fillRect(s.x*size,s.y*size,size,size);
+});
+coinHud.textContent=save.coins;
+}
+function gameOver(){persist(); alert("Game Over! Score: "+score); backMenu();}
+
+window.addEventListener("keydown",e=>{
+if(e.key==="ArrowUp"||e.key==="w")dir={x:0,y:-1};
+if(e.key==="ArrowDown"||e.key==="s")dir={x:0,y:1};
+if(e.key==="ArrowLeft"||e.key==="a")dir={x:-1,y:0};
+if(e.key==="ArrowRight"||e.key==="d")dir={x:1,y:0};
+});
+
+let sx=0,sy=0;
+canvas.addEventListener("touchstart",e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;});
+canvas.addEventListener("touchend",e=>{
+let dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
+if(Math.abs(dx)>Math.abs(dy))dir=dx>0?{x:1,y:0}:{x:-1,y:0};
+else dir=dy>0?{x:0,y:1}:{x:0,y:-1};
+});
+
+updateUI(); renderShops();
+</script>
+</body>
+</html>
