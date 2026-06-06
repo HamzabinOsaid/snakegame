@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Snake Game Pro+</title>
+<title>Snake Pro Ultimate</title>
 
 <style>
   body {
@@ -16,14 +16,8 @@
 
   h1 { margin: 10px; }
 
-  .screen {
-    display: none;
-    padding: 20px;
-  }
-
-  .active {
-    display: block;
-  }
+  .screen { display: none; padding: 20px; }
+  .active { display: block; }
 
   button {
     padding: 10px 14px;
@@ -33,7 +27,6 @@
     cursor: pointer;
     background: #2563eb;
     color: white;
-    font-size: 14px;
   }
 
   button:hover { background: #1d4ed8; }
@@ -51,27 +44,31 @@
   }
 
   .shop-item {
-    margin: 10px;
+    margin: 10px auto;
     padding: 10px;
     border: 1px solid #334155;
     border-radius: 10px;
+    width: 200px;
   }
 </style>
 </head>
 
 <body>
 
-<h1>🐍 Snake Game Pro+</h1>
+<h1>🐍 Snake Pro Ultimate</h1>
 
 <!-- HOME -->
 <div id="home" class="screen active">
-  <button onclick="startGame()">▶ Play</button>
+  <button onclick="startGame(1)">▶ Start Level 1</button>
+  <button onclick="startGame(bestLevel())">🔥 Continue Best Level</button>
   <button onclick="showShop()">🛒 Shop</button>
-  <button onclick="resetProgress()">♻ Reset Progress</button>
+  <button onclick="claimDailyReward()">🎁 Daily Reward</button>
+  <button onclick="resetAll()">♻ Reset</button>
 </div>
 
 <!-- GAME -->
 <div id="gameScreen" class="screen">
+
   <div id="hud">
     <div>Score: <span id="score">0</span></div>
     <div>Coins: <span id="coins">0</span></div>
@@ -79,13 +76,14 @@
   </div>
 
   <canvas id="game"></canvas>
+
   <br>
   <button onclick="goHome()">⬅ Exit</button>
 </div>
 
 <!-- SHOP -->
 <div id="shop" class="screen">
-  <h2>Skin Shop</h2>
+  <h2>Shop</h2>
 
   <div class="shop-item">
     Green Snake (Free)<br>
@@ -94,39 +92,44 @@
 
   <div class="shop-item">
     Blue Snake (10 coins)<br>
-    <button onclick="buySkin('blue', 10)">Buy / Select</button>
+    <button onclick="buySkin('blue', 10)">Buy</button>
   </div>
 
   <div class="shop-item">
     Red Snake (20 coins)<br>
-    <button onclick="buySkin('red', 20)">Buy / Select</button>
+    <button onclick="buySkin('red', 20)">Buy</button>
   </div>
 
   <button onclick="goHome()">⬅ Back</button>
 </div>
 
 <script>
-/* ---------------- SCREEN SYSTEM ---------------- */
+/* ================= SAVE SYSTEM ================= */
+let save = JSON.parse(localStorage.getItem("snakeSave")) || {
+  coins: 0,
+  bestLevel: 1,
+  lastReward: 0,
+  skins: ["green"]
+};
+
+function saveGame() {
+  localStorage.setItem("snakeSave", JSON.stringify(save));
+}
+
+function bestLevel() {
+  return save.bestLevel || 1;
+}
+
+/* ================= SCREENS ================= */
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
 
-function startGame() {
-  showScreen('gameScreen');
-  resetGame();
-  resize();
-}
+function goHome() { showScreen('home'); }
+function showShop() { showScreen('shop'); }
 
-function showShop() {
-  showScreen('shop');
-}
-
-function goHome() {
-  showScreen('home');
-}
-
-/* ---------------- GAME SETUP ---------------- */
+/* ================= GAME SETUP ================= */
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
@@ -142,22 +145,28 @@ function resize() {
 window.addEventListener("resize", resize);
 
 let snake, dir, food;
-let score = 0, coins = 0, level = 1;
+let score = 0;
+let level = 1;
 let speed = 200;
 let lastTime = 0;
 let skin = "green";
 
-/* ---------------- GAME LOGIC ---------------- */
-function resetGame() {
+/* ================= START GAME ================= */
+function startGame(startLevel) {
+  showScreen("gameScreen");
+
+  level = startLevel;
+  speed = Math.max(220 - level * 15, 70);
+
   snake = [{x: 10, y: 10}];
   dir = {x: 1, y: 0};
   food = spawnFood();
-
   score = 0;
-  level = 1;
-  speed = 200;
+
+  updateUI();
 }
 
+/* ================= FOOD ================= */
 function spawnFood() {
   return {
     x: Math.floor(Math.random() * cols),
@@ -165,25 +174,29 @@ function spawnFood() {
   };
 }
 
+/* ================= UI ================= */
 function updateUI() {
   document.getElementById("score").textContent = score;
-  document.getElementById("coins").textContent = coins;
+  document.getElementById("coins").textContent = save.coins;
   document.getElementById("level").textContent = level;
 }
 
+/* ================= GAME LOOP ================= */
 function update() {
   const head = {
     x: snake[0].x + dir.x,
     y: snake[0].y + dir.y
   };
 
-  // FIXED collision
+  // collision FIXED
   if (
     head.x < 0 || head.y < 0 ||
     head.x >= cols || head.y >= rows ||
     snake.some(s => s.x === head.x && s.y === head.y)
   ) {
-    startGame(); // restart clean
+    save.bestLevel = Math.max(save.bestLevel, level);
+    saveGame();
+    startGame(level);
     return;
   }
 
@@ -191,14 +204,15 @@ function update() {
 
   if (head.x === food.x && head.y === food.y) {
     score++;
-    coins++;
+    save.coins++;
 
     if (score % 5 === 0) {
       level++;
-      speed = Math.max(60, speed - 15);
+      speed = Math.max(70, speed - 12);
     }
 
     food = spawnFood();
+    saveGame();
   } else {
     snake.pop();
   }
@@ -210,11 +224,9 @@ function draw() {
   ctx.fillStyle = "#111827";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // food
   ctx.fillStyle = "yellow";
   ctx.fillRect(food.x * tile, food.y * tile, tile, tile);
 
-  // snake
   snake.forEach(s => {
     ctx.fillStyle =
       skin === "green" ? "#22c55e" :
@@ -237,7 +249,7 @@ function loop(time = 0) {
 }
 loop();
 
-/* ---------------- CONTROLS ---------------- */
+/* ================= CONTROLS ================= */
 window.addEventListener("keydown", e => {
   if (e.key === "ArrowUp" && dir.y === 0) dir = {x: 0, y: -1};
   if (e.key === "ArrowDown" && dir.y === 0) dir = {x: 0, y: 1};
@@ -245,7 +257,7 @@ window.addEventListener("keydown", e => {
   if (e.key === "ArrowRight" && dir.x === 0) dir = {x: 1, y: 0};
 });
 
-/* mobile swipe */
+/* touch */
 let sx, sy;
 window.addEventListener("touchstart", e => {
   sx = e.touches[0].clientX;
@@ -265,26 +277,53 @@ window.addEventListener("touchend", e => {
   }
 });
 
-/* ---------------- SHOP ---------------- */
+/* ================= SHOP ================= */
 function setSkin(s) {
   skin = s;
 }
 
 function buySkin(s, cost) {
-  if (coins < cost) {
+  if (save.coins < cost) {
     alert("Not enough coins!");
     return;
   }
-  coins -= cost;
+
+  save.coins -= cost;
   skin = s;
+  saveGame();
   updateUI();
 }
 
-/* ---------------- RESET ---------------- */
-function resetProgress() {
-  coins = 0;
-  alert("Progress reset!");
+/* ================= DAILY REWARD ================= */
+function claimDailyReward() {
+  const now = Date.now();
+  const day = 24 * 60 * 60 * 1000;
+
+  if (now - save.lastReward < day) {
+    const hrs = Math.ceil((day - (now - save.lastReward)) / 3600000);
+    alert("Come back in " + hrs + " hours");
+    return;
+  }
+
+  let reward = 10 + Math.floor(Math.random() * 20);
+  save.coins += reward;
+  save.lastReward = now;
+
+  saveGame();
+  updateUI();
+
+  alert("Daily Reward: +" + reward + " coins!");
 }
+
+/* ================= RESET ================= */
+function resetAll() {
+  localStorage.removeItem("snakeSave");
+  location.reload();
+}
+
+/* ================= INIT ================= */
+resize();
+updateUI();
 </script>
 
 </body>
