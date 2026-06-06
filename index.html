@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Snake Ultimate Pro</title>
+<title>Snake Ultimate Pro+</title>
 
 <style>
 body {
@@ -24,6 +24,7 @@ button {
   border-radius:8px;
   background:#2563eb;
   color:white;
+  cursor:pointer;
 }
 
 canvas {
@@ -31,18 +32,16 @@ canvas {
   border:2px solid #334155;
 }
 
-/* glow animation */
-@keyframes glow {
-  0% { box-shadow: 0 0 5px #22c55e; }
-  50% { box-shadow: 0 0 20px #22c55e; }
-  100% { box-shadow: 0 0 5px #22c55e; }
+/* glow */
+canvas {
+  box-shadow: 0 0 10px #22c55e;
 }
 </style>
 </head>
 
 <body>
 
-<h1>🐍 Snake Ultimate Pro</h1>
+<h1>🐍 Snake Ultimate Pro+</h1>
 
 <!-- HOME -->
 <div id="home" class="screen active">
@@ -63,7 +62,7 @@ Level: <span id="level"></span>
 </div>
 
 <canvas id="game"></canvas><br>
-<button onclick="home()">Exit</button>
+<button onclick="home()">🚪 Exit</button>
 </div>
 
 <!-- SHOP -->
@@ -75,12 +74,12 @@ Level: <span id="level"></span>
 <button onclick="buy('red',20)">Red (20)</button>
 
 <br><br>
-<button onclick="home()">Back</button>
+<button onclick="home()">⬅ Back</button>
 </div>
 
 <script>
 
-/* ---------------- SAVE ---------------- */
+/* ================= SAVE ================= */
 let save = JSON.parse(localStorage.getItem("snakeSave")) || {
 coins:0,
 bestLevel:1,
@@ -91,15 +90,21 @@ function saveGame(){
 localStorage.setItem("snakeSave",JSON.stringify(save));
 }
 
-/* ---------------- SCREEN ---------------- */
+/* ================= GAME STATE ================= */
+let gameRunning = false;
+
+/* ================= SCREEN ================= */
 function show(id){
 document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
 document.getElementById(id).classList.add("active");
 }
-function home(){show("home");}
-function showShop(){show("shop");}
 
-/* ---------------- GAME ---------------- */
+function home(){
+gameRunning = false;   // ✅ FIX EXIT BUG
+show("home");
+}
+
+/* ================= GAME SETUP ================= */
 const c = document.getElementById("game");
 const ctx = c.getContext("2d");
 
@@ -113,15 +118,18 @@ rows=c.height/size;
 }
 resize();
 
-let snake,dir,food,score,level,speed,skin="green",last=0;
+/* ================= GAME VARS ================= */
+let snake,dir,food,score,level,speed,last=0,skin="green";
 
-/* ---------------- SOUND ---------------- */
+/* ================= SOUND ================= */
 const eatSound = new Audio("https://actions.google.com/sounds/v1/cartoon/pop.ogg");
 const gameOver = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
 
-/* ---------------- START ---------------- */
+/* ================= START ================= */
 function startGame(lvl){
 show("gameScreen");
+
+gameRunning = true;   // ✅ IMPORTANT FIX
 
 level=lvl;
 score=0;
@@ -134,7 +142,7 @@ food=randomFood();
 updateUI();
 }
 
-/* ---------------- FOOD ---------------- */
+/* ================= FOOD ================= */
 function randomFood(){
 return{
 x:Math.floor(Math.random()*cols),
@@ -142,16 +150,19 @@ y:Math.floor(Math.random()*rows)
 };
 }
 
-/* ---------------- UI ---------------- */
+/* ================= UI ================= */
 function updateUI(){
 document.getElementById("score").innerText=score;
 document.getElementById("coins").innerText=save.coins;
 document.getElementById("level").innerText=level;
 }
 
-/* ---------------- LOOP ---------------- */
+/* ================= LOOP ================= */
 function loop(t){
 requestAnimationFrame(loop);
+
+if(!gameRunning) return;   // ✅ STOP WHEN EXITED
+
 if(t-last<speed)return;
 last=t;
 
@@ -160,8 +171,10 @@ draw();
 }
 requestAnimationFrame(loop);
 
-/* ---------------- MOVE ---------------- */
+/* ================= MOVE ================= */
 function move(){
+
+if(!gameRunning) return;
 
 let head={
 x:snake[0].x+dir.x,
@@ -169,12 +182,16 @@ y:snake[0].y+dir.y
 };
 
 /* collision */
-if(head.x<0||head.y<0||head.x>=cols||head.y>=rows||
-snake.some(s=>s.x===head.x&&s.y===head.y)){
+if(
+head.x<0||head.y<0||head.x>=cols||head.y>=rows||
+snake.some(s=>s.x===head.x&&s.y===head.y)
+){
 gameOver.play();
 navigator.vibrate?.(200);
+
 save.bestLevel=Math.max(save.bestLevel,level);
 saveGame();
+
 startGame(level);
 return;
 }
@@ -202,7 +219,7 @@ snake.pop();
 updateUI();
 }
 
-/* ---------------- DRAW (ANIMATION) ---------------- */
+/* ================= DRAW ================= */
 function draw(){
 
 ctx.fillStyle="#111827";
@@ -211,10 +228,10 @@ ctx.fillRect(0,0,c.width,c.height);
 ctx.fillStyle="yellow";
 ctx.fillRect(food.x*size,food.y*size,size,size);
 
-/* glowing snake */
-snake.forEach((s,i)=>{
+/* snake glow */
+snake.forEach(s=>{
 ctx.shadowBlur=10;
-ctx.shadowColor=skin==="green"?"#22c55e":skin==="blue"?"#3b82f6":"#ef4444";
+ctx.shadowColor="#22c55e";
 
 ctx.fillStyle=
 skin==="green"?"#22c55e":
@@ -226,7 +243,7 @@ ctx.fillRect(s.x*size,s.y*size,size,size);
 ctx.shadowBlur=0;
 }
 
-/* ---------------- CONTROLS ---------------- */
+/* ================= CONTROLS ================= */
 window.addEventListener("keydown",e=>{
 if(e.key==="ArrowUp"&&dir.y===0)dir={x:0,y:-1};
 if(e.key==="ArrowDown"&&dir.y===0)dir={x:0,y:1};
@@ -254,7 +271,7 @@ else if(dy<0&&dir.y===0)dir={x:0,y:-1};
 }
 });
 
-/* ---------------- SHOP ---------------- */
+/* ================= SHOP ================= */
 function buy(color,cost){
 if(save.coins<cost)return alert("Not enough coins");
 save.coins-=cost;
@@ -263,7 +280,7 @@ saveGame();
 updateUI();
 }
 
-/* ---------------- DAILY ---------------- */
+/* ================= DAILY REWARD ================= */
 function dailyReward(){
 let now=Date.now();
 if(now-save.lastReward<86400000){
@@ -277,7 +294,7 @@ updateUI();
 alert("Daily +" + r);
 }
 
-/* ---------------- RESET ---------------- */
+/* ================= RESET ================= */
 function resetAll(){
 localStorage.clear();
 location.reload();
